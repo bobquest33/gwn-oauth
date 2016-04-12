@@ -3,6 +3,5 @@
 /build
 .classpath
 .settings
-.project
 .DS_Store
 vendor
