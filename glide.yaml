@@ -1,0 +1,10 @@
+package: main
+
+import:
+    - package: gopkg.in/yaml.v2
+    - package: github.com/lib/pq
+    - package: github.com/helderfarias/oauthprovider-go
+    - package: github.com/dgrijalva/jwt-go
+    - package: github.com/jmoiron/sqlx
+      version: ^sqlx-v1.1
+    

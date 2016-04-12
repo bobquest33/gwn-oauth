@@ -1,0 +1,6 @@
+database:
+    datasource: user=gwn password=gwn00 dbname=gwn host=localhost port=5432 sslmode=disable
+    showsql: true
+    pool:
+        min: 1
+        max: 1
