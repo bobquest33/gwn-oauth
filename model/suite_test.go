@@ -1,15 +1,17 @@
-package dominio
+package model
 
-import "github.com/stretchr/testify/suite"
-import "testing"
+import (
+	"github.com/stretchr/testify/suite"
+	"testing"
+)
 
-type DominioSuite struct {
+type ModelSuite struct {
 	suite.Suite
 }
 
-func (s *DominioSuite) SetupTest() {
+func (s *ModelSuite) SetupTest() {
 }
 
-func TestEndpointAllTests(t *testing.T) {
-	suite.Run(t, new(DominioSuite))
+func TestModelAllTests(t *testing.T) {
+	suite.Run(t, new(ModelSuite))
 }

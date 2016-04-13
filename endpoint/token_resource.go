@@ -4,9 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	// . "github.com/helderfarias/gwn-oauth/log"
+	. "github.com/helderfarias/gwn-oauth/log"
 	"github.com/helderfarias/gwn-oauth/middleware"
-	// oauthhttp "github.com/helderfarias/oauthprovider-go/http"
 )
 
 type TokenResource struct {
@@ -26,9 +25,10 @@ func (r *TokenResource) createToken(c *gin.Context) {
 
 	token, err := service.Create(c.Request)
 	if err != nil {
-		context.Response().Error(http.StatusUnauthorized, "Credênciais Inválida")
+		Logger.Error("Erro: %s", err)
+		context.Response().Error(http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	context.Response().Status(http.StatusOK).Entity(token)
+	context.Response().Ok(token)
 }
