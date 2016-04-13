@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -9,11 +10,19 @@ import (
 	oauthgrant "github.com/helderfarias/oauthprovider-go/grant"
 	oauthhttp "github.com/helderfarias/oauthprovider-go/http"
 	oauthmodel "github.com/helderfarias/oauthprovider-go/model"
+	oauthtoken "github.com/helderfarias/oauthprovider-go/token"
+
 	"github.com/jmoiron/sqlx"
 
+	"github.com/helderfarias/gwn-oauth/dao"
 	. "github.com/helderfarias/gwn-oauth/log"
 	"github.com/helderfarias/gwn-oauth/model"
 	"github.com/helderfarias/gwn-oauth/password"
+)
+
+const (
+	TOKEN_EXP_SECONDS        = (60 * 60 * 24 * 30)
+	CONNECTION_TYPE_DATABASE = 1
 )
 
 type TokenService interface {
@@ -21,62 +30,107 @@ type TokenService interface {
 }
 
 type tokenService struct {
-	db    *sqlx.DB
-	user  model.User
-	roles []model.Role
+	db            *sqlx.DB
+	connectionDao dao.ConnectionDao
+	config        interface{}
+	user          model.User
 }
 
 func NewTokenService(db *sqlx.DB) TokenService {
-	return &tokenService{db: db}
+	return &tokenService{
+		db:            db,
+		connectionDao: dao.NewConnectionDao(db),
+	}
 }
 
-func (t *tokenService) Create(req *http.Request) (string, error) {
+func (this *tokenService) Create(req *http.Request) (string, error) {
 	request := &oauthhttp.OAuthRequest{HttpRequest: req}
 
-	var conn model.Connection
-	err := t.db.Get(&conn, t.db.Rebind("SELECT type, config FROM connections"))
+	conn, err := this.connectionDao.FindByClientId(request.GetClientId())
 	if err != nil {
-		Logger.Error("%s", err)
+		return "", err
 	}
 
-	var dbConfig model.ConnectionDatabaseConfig
-	if err := json.Unmarshal([]byte(fmt.Sprintf("%s", conn.Config)), &dbConfig); err != nil {
-		Logger.Error("%s", err)
-	} else {
-		conn.Config = dbConfig
+	if this.config, err = this.createConfig(conn.Type, conn.Config); err != nil {
+		return "", err
 	}
 
-	clientDB := sqlx.MustOpen(dbConfig.Driver, dbConfig.DataSource)
-	defer clientDB.Close()
-
-	var user model.User
-	err = clientDB.Get(&user, t.db.Rebind(dbConfig.User), request.GetUserName())
-	if err != nil {
-		Logger.Error("Error get user: %s", err)
+	if this.user, err = this.createUserAndRoles(request); err != nil {
+		return "", err
 	}
-
-	var roles []model.Role
-	err = clientDB.Select(&roles, t.db.Rebind(dbConfig.Roles), request.GetUserName())
-	if err != nil {
-		Logger.Error("Error get roles: %s", err)
-	}
-
-	t.user = user
 
 	server := oauthprovider.New().AuthorizationServer()
-	server.ClientStorage = &PGClientStorage{db: t.db}
-	server.ScopeStorage = &PGScopeStorage{roles: roles}
-	server.AddGrant(&oauthgrant.PasswordGrant{Callback: t.findByUser})
+	server.ClientStorage = &PGClientStorage{db: this.db}
+	server.ScopeStorage = &PGScopeStorage{user: this.user}
+	server.TokenConverter = &oauthtoken.TokenConverterJwt{
+		ExpiryTimeInSecondsForAccessToken: TOKEN_EXP_SECONDS,
+		PrivateKey:                        conn.App.PrivateKey,
+		PayloadHandler:                    this.createPayload,
+	}
+
+	server.AddGrant(&oauthgrant.PasswordGrant{Callback: this.findByUser})
 
 	return server.IssueAccessToken(request)
 }
 
-func (t *tokenService) findByUser(user, pass string) *oauthmodel.User {
-	encoder := &password.JBoss7MD5Hash{}
+func (this *tokenService) createPayload() map[string]interface{} {
+	payload := map[string]interface{}{}
+	payload["login"] = this.user.Login
+	payload["name"] = this.user.Name
+	payload["roles"] = this.user.Roles
+	return payload
+}
 
-	if encoder.Equals(pass, t.user.Password) {
+func (this *tokenService) findByUser(user, pass string) *oauthmodel.User {
+	var encoder password.PasswordEncode
+
+	encoder = &password.PasswordEncodeDefault{}
+
+	if cfg, ok := this.config.(model.ConnectionDatabaseConfig); ok {
+		if cfg.PasswordEncode == "jboss7_md5_base64" {
+			encoder = &password.JBoss7MD5Hash{}
+		}
+	}
+
+	if encoder.Equals(pass, this.user.Password) {
 		return &oauthmodel.User{}
 	}
 
 	return nil
+}
+
+func (t *tokenService) createConfig(typeId int, data interface{}) (interface{}, error) {
+	Logger.Debug("Connection Type: %d, Config: %s", typeId, data)
+
+	if typeId == CONNECTION_TYPE_DATABASE {
+		var dbconfig model.ConnectionDatabaseConfig
+		if err := json.Unmarshal([]byte(fmt.Sprintf("%s", data)), &dbconfig); err != nil {
+			return "", err
+		}
+		return dbconfig, nil
+	}
+
+	return nil, errors.New("Connection type was not defined")
+}
+
+func (this *tokenService) createUserAndRoles(request oauthhttp.Request) (model.User, error) {
+	if cfg, ok := this.config.(model.ConnectionDatabaseConfig); ok {
+		clientDB := sqlx.MustOpen(cfg.Driver, cfg.DataSource)
+		defer clientDB.Close()
+
+		var user model.User
+		err := clientDB.Get(&user, this.db.Rebind(cfg.User), request.GetUserName())
+		if err != nil {
+			return model.User{}, err
+		}
+
+		err = clientDB.Select(&user.Roles, this.db.Rebind(cfg.Roles), request.GetUserName())
+		if err != nil {
+			return model.User{}, err
+		}
+
+		return user, nil
+	}
+
+	return model.User{}, errors.New("Database config type was not defined")
 }

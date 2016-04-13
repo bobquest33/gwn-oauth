@@ -1,8 +1,9 @@
 package model
 
 type Connection struct {
-	Type   string      `json:"type" db:"type"`
+	Type   int         `json:"type" db:"type"`
 	Config interface{} `json:"config" db:"config"`
+	App    App         `json:"app" db:"-"`
 }
 
 type ConnectionDatabaseConfig struct {

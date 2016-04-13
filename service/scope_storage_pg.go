@@ -9,13 +9,13 @@ import (
 )
 
 type PGScopeStorage struct {
-	roles []model.Role
+	user model.User
 }
 
-func (c *PGScopeStorage) Find(scope, clientId string) (*oauthmodel.Scope, error) {
-	for _, role := range c.roles {
-		if role.Name == scope {
-			return &oauthmodel.Scope{Name: role.Name}, nil
+func (this *PGScopeStorage) Find(scope, clientId string) (*oauthmodel.Scope, error) {
+	for _, role := range this.user.Roles {
+		if role == scope {
+			return &oauthmodel.Scope{Name: role}, nil
 		}
 	}
 

@@ -6,4 +6,6 @@ import:
     - package: github.com/stretchr/testify/suite
     - package: github.com/helderfarias/oauthprovider-go
     - package: github.com/dgrijalva/jwt-go
-    - package: github.com/jmoiron/sqlx    
+    - package: github.com/jmoiron/sqlx
+    - package: github.com/gin-gonic/gin
+      version: ^v1.0rc1
