@@ -70,7 +70,7 @@ func (this *tokenService) Create(req *http.Request) (string, error) {
 
 	server.AddGrant(&oauthgrant.PasswordGrant{Callback: this.findByUser})
 
-	return server.IssueAccessToken(request)
+	return server.HandlerAccessToken(request)
 }
 
 func (this *tokenService) createPayload() map[string]interface{} {

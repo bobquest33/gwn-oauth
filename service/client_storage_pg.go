@@ -21,9 +21,10 @@ func (this *PGClientStorage) FindById(id string) *oauthmodel.Client {
 	}
 
 	return &oauthmodel.Client{
-		ID:     app.Id,
-		Name:   app.ClientId,
-		Secret: app.ClientSecret,
+		ID:          app.Id,
+		Name:        app.ClientId,
+		Secret:      app.ClientSecret,
+		RedirectUri: "http://localhost",
 	}
 }
 
@@ -37,9 +38,10 @@ func (this *PGClientStorage) FindByCredencials(clientId, clientSecret string) *o
 	}
 
 	return &oauthmodel.Client{
-		ID:     app.Id,
-		Name:   app.ClientId,
-		Secret: app.ClientSecret,
+		ID:          app.Id,
+		Name:        app.ClientId,
+		Secret:      app.ClientSecret,
+		RedirectUri: "http://localhost",
 	}
 }
 

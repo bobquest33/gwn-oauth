@@ -12,7 +12,9 @@ var endpoints []Resource
 func init() {
 	endpoints = make([]Resource, 0)
 	factory := middleware.NewContextWrapperFactory()
+	endpoints = append(endpoints, &RootResource{contextFactory: factory})
 	endpoints = append(endpoints, &TokenResource{contextFactory: factory})
+	endpoints = append(endpoints, &AuthorizeResource{contextFactory: factory})
 }
 
 func RegisterEndpoints(router *gin.Engine) {
