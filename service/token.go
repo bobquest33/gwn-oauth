@@ -11,6 +11,7 @@ import (
 	oauthhttp "github.com/helderfarias/oauthprovider-go/http"
 	oauthmodel "github.com/helderfarias/oauthprovider-go/model"
 	oauthtoken "github.com/helderfarias/oauthprovider-go/token"
+	oauthutil "github.com/helderfarias/oauthprovider-go/util"
 
 	"github.com/jmoiron/sqlx"
 
@@ -26,7 +27,7 @@ const (
 )
 
 type TokenService interface {
-	Create(req *http.Request) (string, error)
+	Create(req *http.Request, res http.ResponseWriter) (string, error)
 }
 
 type tokenService struct {
@@ -43,10 +44,16 @@ func NewTokenService(db *sqlx.DB) TokenService {
 	}
 }
 
-func (this *tokenService) Create(req *http.Request) (string, error) {
+func (this *tokenService) Create(req *http.Request, res http.ResponseWriter) (string, error) {
 	request := &oauthhttp.OAuthRequest{HttpRequest: req}
+	response := &oauthhttp.OAuthResponse{HttpRequest: req, HttpResponse: res}
 
-	conn, err := this.connectionDao.FindByClientId(request.GetClientId())
+	clientId := request.GetAuthorizationBasic()[0]
+	if clientId == "" {
+		clientId = request.GetClientId()
+	}
+
+	conn, err := this.connectionDao.FindByClientId(clientId)
 	if err != nil {
 		return "", err
 	}
@@ -69,8 +76,10 @@ func (this *tokenService) Create(req *http.Request) (string, error) {
 	}
 
 	server.AddGrant(&oauthgrant.PasswordGrant{Callback: this.findByUser})
+	server.AddGrant(&oauthgrant.AuthzCodeGrant{})
+	server.AddGrant(&oauthgrant.ClientCredencial{})
 
-	return server.HandlerAccessToken(request)
+	return server.HandlerAccessToken(request, response)
 }
 
 func (this *tokenService) createPayload() map[string]interface{} {
@@ -114,6 +123,10 @@ func (t *tokenService) createConfig(typeId int, data interface{}) (interface{}, 
 }
 
 func (this *tokenService) createUserAndRoles(request oauthhttp.Request) (model.User, error) {
+	if request.GetGrantType() != oauthutil.OAUTH_PASSWORD {
+		return model.User{}, nil
+	}
+
 	if cfg, ok := this.config.(model.ConnectionDatabaseConfig); ok {
 		clientDB := sqlx.MustOpen(cfg.Driver, cfg.DataSource)
 		defer clientDB.Close()

@@ -23,7 +23,7 @@ func (r *TokenResource) createToken(c *gin.Context) {
 
 	service := context.GetServiceFactory().GetTokenService()
 
-	token, err := service.Create(c.Request)
+	token, err := service.Create(c.Request, c.Writer)
 	if err != nil {
 		Logger.Error("Erro: %s", err)
 		context.Response().Error(http.StatusUnauthorized, err.Error())

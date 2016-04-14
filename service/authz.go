@@ -1,14 +1,12 @@
 package service
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/helderfarias/gwn-oauth/dao"
 	"github.com/helderfarias/gwn-oauth/model"
 	"github.com/helderfarias/oauthprovider-go"
 	oauthhttp "github.com/helderfarias/oauthprovider-go/http"
-	// oauthutil "github.com/helderfarias/oauthprovider-go/util"
 	"github.com/jmoiron/sqlx"
 )
 
