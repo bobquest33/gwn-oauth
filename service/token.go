@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/helderfarias/oauthprovider-go"
 	oauthgrant "github.com/helderfarias/oauthprovider-go/grant"
@@ -35,6 +36,7 @@ type tokenService struct {
 	connectionDao dao.ConnectionDao
 	config        interface{}
 	user          model.User
+	connection    model.Connection
 }
 
 func NewTokenService(db *sqlx.DB) TokenService {
@@ -53,12 +55,13 @@ func (this *tokenService) Create(req *http.Request, res http.ResponseWriter) (st
 		clientId = request.GetClientId()
 	}
 
-	conn, err := this.connectionDao.FindByClientId(clientId)
+	var err error
+	this.connection, err = this.connectionDao.FindByClientId(clientId)
 	if err != nil {
 		return "", err
 	}
 
-	if this.config, err = this.createConfig(conn.Type, conn.Config); err != nil {
+	if this.config, err = this.createConfig(this.connection.Type, this.connection.Config); err != nil {
 		return "", err
 	}
 
@@ -71,7 +74,7 @@ func (this *tokenService) Create(req *http.Request, res http.ResponseWriter) (st
 	server.ScopeStorage = &PGScopeStorage{user: this.user}
 	server.TokenConverter = &oauthtoken.TokenConverterJwt{
 		ExpiryTimeInSecondsForAccessToken: TOKEN_EXP_SECONDS,
-		PrivateKey:                        conn.App.PrivateKey,
+		PrivateKey:                        this.connection.App.PrivateKey,
 		PayloadHandler:                    this.createPayload,
 	}
 
@@ -83,11 +86,24 @@ func (this *tokenService) Create(req *http.Request, res http.ResponseWriter) (st
 }
 
 func (this *tokenService) createPayload() map[string]interface{} {
-	payload := map[string]interface{}{}
-	payload["login"] = this.user.Login
-	payload["name"] = this.user.Name
-	payload["roles"] = this.user.Roles
-	return payload
+	claims := map[string]interface{}{}
+	claims["iss"] = this.connection.App.ClientId
+	claims["iat"] = time.Now().Unix()
+
+	if this.user.Login != "" {
+		claims["sub"] = this.user.Login
+		claims["login"] = this.user.Login
+	}
+
+	if this.user.Name != "" {
+		claims["name"] = this.user.Name
+	}
+
+	if len(this.user.Roles) > 0 {
+		claims["roles"] = this.user.Roles
+	}
+
+	return claims
 }
 
 func (this *tokenService) findByUser(user, pass string) *oauthmodel.User {
