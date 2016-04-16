@@ -11,7 +11,7 @@ import (
 )
 
 type AuthzService interface {
-	Create(req *http.Request, res http.ResponseWriter) (string, error)
+	Create(req *http.Request, res http.ResponseWriter) error
 }
 
 type authzService struct {
@@ -28,7 +28,7 @@ func NewAuthzService(db *sqlx.DB) AuthzService {
 	}
 }
 
-func (this *authzService) Create(req *http.Request, res http.ResponseWriter) (string, error) {
+func (this *authzService) Create(req *http.Request, res http.ResponseWriter) error {
 	request := &oauthhttp.OAuthRequest{HttpRequest: req}
 	response := &oauthhttp.OAuthResponse{HttpRequest: req, HttpResponse: res}
 

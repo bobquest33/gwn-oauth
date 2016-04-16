@@ -23,7 +23,7 @@ func (r *AuthorizeResource) createAuthorizationCode(c *gin.Context) {
 
 	service := context.GetServiceFactory().GetAuthzService()
 
-	_, err := service.Create(c.Request, c.Writer)
+	err := service.Create(c.Request, c.Writer)
 	if err != nil {
 		Logger.Error("Erro: %s", err)
 		context.Response().Error(http.StatusUnauthorized, err.Error())
